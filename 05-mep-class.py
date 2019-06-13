@@ -100,9 +100,20 @@ for mep in meps:
         axs.plot(min_row.s, min_row[apb_name], 'ro')
         axs.annotate(str(max_row[apb_name]), (max_row.s, max_row[apb_name]))
         axs.annotate(str(min_row[apb_name]), (min_row.s, min_row[apb_name]))
-        plt.show()
 
         # Compare with max size.
+        mep_size = max_row[apb_name] - min_row[apb_name]
+        max_mep = max_meps_among_all_frames_df.loc[mep]
+        # axs.annotate(str(mep_size) + '<=' + str(max_mep['mep-size']), 
+        #             xy=(min_row.s + 0.23, min_row[apb_name]), 
+        #             xytext=(min_row.s + 0.23, max_row[apb_name]),
+        #             arrowprops=dict(facecolor='black', arrowstyle='|-|')
+        #             )
+        axs.axhline(min_row[apb_name], color='firebrick')
+        axs.axhline(min_row[apb_name] + max_mep['mep-size'], color='firebrick')
+        axs.axhline(min_row[apb_name] + max_mep['mep-size'] / 3, color='firebrick', linestyle='--')
+        axs.axhline(min_row[apb_name] + max_mep['mep-size'] * 2 / 3, color='firebrick', linestyle='--')
+        plt.show()
     break
 
 #%%
