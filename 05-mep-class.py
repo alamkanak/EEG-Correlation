@@ -53,9 +53,9 @@ for mep in meps:
     for frame in range(len(mep_frames)):
         df = mep_frames[frame]
         mep_cropped, time = crop_mep_region(df)
+        apb_name = get_apb_column_name(df)
         max_row = df.iloc[mep_cropped.idxmax(axis=0)[apb_name]]
         min_row = df.iloc[mep_cropped.idxmin(axis=0)[apb_name]]
-        apb_name = get_apb_column_name(df)
         max_in_frame_list.append({
             'path': mep,
             'frame': frame,
