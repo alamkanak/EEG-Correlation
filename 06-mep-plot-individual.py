@@ -40,7 +40,8 @@ def crop_epochs(epoch_list, duration_millis=100, sampling_rate=1000):
         epoch_df['signal time'] = epoch_df.index
         epoch_df = epoch_df.reset_index()
         indices = epoch_df.index[epoch_df['signal time'] == 0].tolist()
-        delete_count = epoch_df.shape[0] - indices[int(len(indices)/2)]
+        event_index = int(len(indices)/2)
+        delete_count = epoch_df.shape[0] - indices[event_index]
         epoch_df = epoch_df.drop(epoch_df.tail(delete_count).index)
 
         # Select EEG for the selected duration.
@@ -51,7 +52,7 @@ def crop_epochs(epoch_list, duration_millis=100, sampling_rate=1000):
         # Append the epoch in the list.
         epoch_df = epoch_df.set_index('signal time')
         new_epoch_list.append(epoch_df)
-    return new_epoch_list
+    return new_epoch_list, -keep
 
 #%% Open MEP file as dataframe.
 def open_mep_as_df(path):
@@ -103,31 +104,45 @@ def calculate_eeg_frequency(epoch_df):
     freq = np.fft.fftfreq(avg.shape[0])
     return np.max(np.abs(sp))
 
+
+#%% Generate relations between EEG parameters and MEP sizes.
+def generate_mep_relation(eeg_path, mep_path):
+    raw_eeg = read_eeg(eeg_path)
+    epoch_list, crop_length = crop_epochs(raw_eeg, 500)
+    mep_frames = open_mep_as_df(mep_path)
+    if (len(epoch_list) != len(mep_frames)):
+        print('MEP and EEG epoch count did not match')
+        return
+    points = []
+    for i in range(len(epoch_list)):
+        mep_size = calculate_mep_size(mep_frames[i])
+        eeg_area = calculate_eeg_area(epoch_list[i])
+        freq = calculate_eeg_frequency(epoch_list[i])
+        points.append((eeg_area, freq, mep_size))
+    mep_size_df = pd.DataFrame(points, columns=('area', 'freq', 'mep'))
+    return mep_size_df, raw_eeg, crop_length
+    
+
 #%% Loop through all the EEGs and MEPs.
 for eeg_path in eegs:
     eeg_take = eeg_path.split('/')[5]
     for mep_path in meps:
         if (mep_path.split('/')[5] == eeg_take):
-            epoch_list = read_eeg(eeg_path)
-            epoch_list = crop_epochs(epoch_list)
-            mep_frames = open_mep_as_df(mep_path)
-            if (len(epoch_list) != len(mep_frames)):
-                print('MEP and EEG epoch count did not match')
-                break
-            points = []
-            for i in range(len(epoch_list)):
-                mep_size = calculate_mep_size(mep_frames[i])
-                eeg_area = calculate_eeg_area(epoch_list[i])
-                freq = calculate_eeg_frequency(epoch_list[i])
-                points.append((eeg_area, mep_size, freq))
-            df = pd.DataFrame(points, columns=('area', 'mep', 'freq'))
-            fig = plt.figure()
-            plt.plot(df.freq, df.mep, 'o')
-            plt.xlabel('Frequency')
-            plt.ylabel('MEP Size')
-            plt.show()
-            break
-    break
+            mep_size_df, raw_eeg, crop_length = generate_mep_relation(eeg_path, mep_path)
+            fig, axs = plt.subplots(3, 1, figsize=(12, 18))
+            for eeg in raw_eeg:
+                axs[0].plot(eeg.index.values, eeg.reset_index().drop(['signal time', 'time'], axis=1))
+            axs[0].set_title('Clean EEG')
+            axs[0].set(xlabel='Time (ms)', ylabel='mV')
+            axs[0].axvspan(crop_length, 0, facecolor="b", alpha=0.1)
+            axs[1].plot(mep_size_df.area, mep_size_df.mep, 'o')
+            axs[1].set_title('MEP vs Area Under Curve')
+            axs[1].set(xlabel='Area', ylabel='MEP')
+            axs[2].plot(mep_size_df.freq, mep_size_df.mep, 'o')
+            axs[2].set_title('MEP vs Dominant Frequency')
+            axs[2].set(xlabel='Dominant Frequency', ylabel='MEP')
+            fig.suptitle(eeg_path.split('/')[2] + '/' + eeg_path.split('/')[3] + '/' + eeg_path.split('/')[4])
+            plt.tight_layout()
 
 #%%
 
