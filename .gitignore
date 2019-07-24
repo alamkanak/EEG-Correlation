@@ -223,5 +223,6 @@ dmypy.json
 downloads/
 data/
 logs/
+wavelets/
 
 # End of https://www.gitignore.io/api/python,pycharm,visualstudiocode
