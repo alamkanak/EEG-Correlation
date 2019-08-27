@@ -293,7 +293,7 @@ HP_CNN_KERNEL_Y_1 = hp.HParam('kernel_1_y', hp.Discrete([80, 30, 5]))
 HP_CNN_KERNEL_X_2 = hp.HParam('kernel_2_x', hp.Discrete([80, 30, 5]))
 HP_CNN_KERNEL_Y_2 = hp.HParam('kernel_2_y', hp.Discrete([80, 30, 5]))
 
-with tf.summary.create_file_writer('logs/78-hparam-tuning').as_default():
+with tf.summary.create_file_writer('logs/78-hparam-tuning-v3').as_default():
     hp.hparams_config(
         hparams=[HP_NUM_UNITS, HP_DROPOUT, HP_LEARNING_RATE, HP_CNN_KERNEL_X_1, HP_CNN_KERNEL_Y_1, HP_CNN_KERNEL_X_2, HP_CNN_KERNEL_Y_2, HP_CNN_FILTER_1, HP_CNN_FILTER_2, HP_BATCH_NORM],
         metrics=[hp.Metric('accuracy', display_name='Accuracy')],
@@ -302,28 +302,26 @@ with tf.summary.create_file_writer('logs/78-hparam-tuning').as_default():
 
 #%%
 def train_test_model(logdir, hparams):
-        
-    with tf.device('/GPU:1'):
-        classifier = tf.keras.Sequential()
-        classifier.add(tf.keras.layers.Conv2D(filters=hparams[HP_CNN_FILTER_1], kernel_size=(hparams[HP_CNN_KERNEL_X_1], hparams[HP_CNN_KERNEL_Y_1]), padding='same', activation='relu', input_shape=(x_train[0].shape[0], x_train[0].shape[1],1)))
-        if hparams[HP_BATCH_NORM]:
-            classifier.add(tf.keras.layers.BatchNormalization())
-        classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
-        classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
-        classifier.add(tf.keras.layers.Conv2D(filters=hparams[HP_CNN_FILTER_2], kernel_size=(hparams[HP_CNN_KERNEL_X_2], hparams[HP_CNN_KERNEL_Y_2]), padding='same', activation='relu'))
-        classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
-        classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
-        classifier.add(tf.keras.layers.Flatten())
-        classifier.add(tf.keras.layers.Dense(hparams[HP_NUM_UNITS], activation='relu'))
-        classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
-        classifier.add(tf.keras.layers.Dense(1, activation='sigmoid'))
-        classifier.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams[HP_LEARNING_RATE], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    classifier = tf.keras.Sequential()
+    classifier.add(tf.keras.layers.Conv2D(filters=hparams[HP_CNN_FILTER_1], kernel_size=(hparams[HP_CNN_KERNEL_X_1], hparams[HP_CNN_KERNEL_Y_1]), padding='same', activation='relu', input_shape=(x_train[0].shape[0], x_train[0].shape[1],1)))
+    if hparams[HP_BATCH_NORM]:
+        classifier.add(tf.keras.layers.BatchNormalization())
+    classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
+    classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
+    classifier.add(tf.keras.layers.Conv2D(filters=hparams[HP_CNN_FILTER_2], kernel_size=(hparams[HP_CNN_KERNEL_X_2], hparams[HP_CNN_KERNEL_Y_2]), padding='same', activation='relu'))
+    classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
+    classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
+    classifier.add(tf.keras.layers.Flatten())
+    classifier.add(tf.keras.layers.Dense(hparams[HP_NUM_UNITS], activation='relu'))
+    classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
+    classifier.add(tf.keras.layers.Dense(1, activation='sigmoid'))
+    classifier.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams[HP_LEARNING_RATE], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
         hp.KerasCallback(logdir, hparams)
     ]
-    classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=10, callbacks=cb, verbose=0)
+    classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=100, callbacks=cb, verbose=0)
 
     _, accuracy = classifier.evaluate(x_test, y_test)
     return accuracy
@@ -375,8 +373,9 @@ for idx, row in df_params.iterrows():
         HP_CNN_FILTER_2: row['filter_2'],
         HP_BATCH_NORM: row['batch_norm']
     }
-    run_name = "run-%d" % session_num
+    run_name = "run2-%d" % session_num
     print('--- Starting trial: %s' % run_name)
     print({h.name: hparams[h] for h in hparams})
-    train_test_model('logs/tensorboard/78-wavelet-hyper-v1/' + run_name, hparams)
+    train_test_model('logs/tensorboard/78-wavelet-hyper-v3/' + run_name, hparams)
     session_num += 1
+

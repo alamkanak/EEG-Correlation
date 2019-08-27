@@ -283,7 +283,7 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random
 
 #%%
 HP_NUM_UNITS = hp.HParam('num_units', hp.Discrete([128, 256, 512]))
-HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.5]))
+HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.3, 0.5]))
 HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.0001, 0.00001]))
 HP_CNN_FILTER_1 = hp.HParam('filter_1', hp.Discrete([16, 64, 256]))
 HP_CNN_FILTER_2 = hp.HParam('filter_2', hp.Discrete([16, 64, 256]))
@@ -293,7 +293,7 @@ HP_CNN_KERNEL_Y_1 = hp.HParam('kernel_1_y', hp.Discrete([80, 30, 5]))
 HP_CNN_KERNEL_X_2 = hp.HParam('kernel_2_x', hp.Discrete([80, 30, 5]))
 HP_CNN_KERNEL_Y_2 = hp.HParam('kernel_2_y', hp.Discrete([80, 30, 5]))
 
-with tf.summary.create_file_writer('logs/78-hparam-tuning-v3').as_default():
+with tf.summary.create_file_writer('logs/78-hparam-tuning-v2').as_default():
     hp.hparams_config(
         hparams=[HP_NUM_UNITS, HP_DROPOUT, HP_LEARNING_RATE, HP_CNN_KERNEL_X_1, HP_CNN_KERNEL_Y_1, HP_CNN_KERNEL_X_2, HP_CNN_KERNEL_Y_2, HP_CNN_FILTER_1, HP_CNN_FILTER_2, HP_BATCH_NORM],
         metrics=[hp.Metric('accuracy', display_name='Accuracy')],
@@ -316,13 +316,11 @@ def train_test_model(logdir, hparams):
     classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
     classifier.add(tf.keras.layers.Dense(1, activation='sigmoid'))
     classifier.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams[HP_LEARNING_RATE], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
-
     cb = [
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
         hp.KerasCallback(logdir, hparams)
     ]
     classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=100, callbacks=cb, verbose=0)
-
     _, accuracy = classifier.evaluate(x_test, y_test)
     return accuracy
 
@@ -373,9 +371,8 @@ for idx, row in df_params.iterrows():
         HP_CNN_FILTER_2: row['filter_2'],
         HP_BATCH_NORM: row['batch_norm']
     }
-    run_name = "run1-%d" % session_num
+    run_name = "run2-%d" % session_num
     print('--- Starting trial: %s' % run_name)
     print({h.name: hparams[h] for h in hparams})
-    train_test_model('logs/tensorboard/78-wavelet-hyper-v3/' + run_name, hparams)
+    train_test_model('logs/tensorboard/78-wavelet-hyper-v2/' + run_name, hparams)
     session_num += 1
-
