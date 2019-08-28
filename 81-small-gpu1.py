@@ -1,5 +1,4 @@
-# To add a new cell, type '#%%'
-# To add a new markdown cell, type '#%% [markdown]'
+#%%
 import glob
 import pandas as pd
 import mne
@@ -22,6 +21,7 @@ from sklearn.svm import SVR
 from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 from sklearn.tree import DecisionTreeClassifier
+from keras_tqdm import TQDMNotebookCallback
 from tensorboard.plugins.hparams import api as hp
 from livelossplot.tf_keras import PlotLossesCallback
 
@@ -44,7 +44,9 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import timeit
 from skimage.transform import resize
-
+from timeit import default_timer as timer
+from datetime import timedelta
+import json
 
 #%%
 eeglab_path = '/home/raquib/Documents/MATLAB/eeglab2019_0/functions/'
@@ -71,11 +73,6 @@ print(all_present)
 print('EEG count: ' + str(len(eegs)))
 print('MEP count: ' + str(len(meps)))
 print('CMAP count: ' + str(len(cmaps)))
-
-
-#%%
-eegs
-
 
 #%%
 eegs = [
@@ -203,9 +200,6 @@ def wavelet_band_max(df, interval):
         return 0, 0, 0, 0
     return df.mean(axis=1).max(), df.mean(axis=1).argmax() * 1000, df.mean(axis=0).max(), df.mean(axis=0).argmax()
 
-#%% [markdown]
-# # Read features file
-
 #%%
 features_filename = '55-features-v1.xlsx'
 
@@ -236,23 +230,18 @@ df_wt = []
 df_mean = np.zeros((37,983))
 for idx, epoch in tqdm(df.iterrows(), total=df.shape[0]):
     wt_all, wt_ltm1, wt_rtm1, wt_central = read_wavelets(epoch['sub'], epoch['exp'], epoch['run'], epoch['epoch'])
-
-    # Take 6-50Hz frequencies.
-#     wt_all = wt_all[(wt_all.index * 1000 > 6) * (wt_all.index * 1000 < 50)]
     wt_ltm1 = wt_ltm1[(wt_ltm1.index * 1000 > 2) * (wt_ltm1.index * 1000 < 50)]
-#     wt_rtm1 = wt_rtm1[(wt_rtm1.index * 1000 > 6) * (wt_rtm1.index * 1000 < 50)]
-#     wt_central = wt_central[(wt_central.index * 1000 > 6) * (wt_central.index * 1000 < 50)]
-
-    # Take only last -100ms to -20ms.
-#     wt_all = wt_all.loc[:, wt_all.columns.isin(wt_all.columns[(wt_all.columns >= (start_time_sec/1000)) * (wt_all.columns <= (end_time_sec/1000))])]
     wt_ltm1 = wt_ltm1.loc[:, wt_ltm1.columns.isin(wt_ltm1.columns[(wt_ltm1.columns >= (start_time_sec/1000)) * (wt_ltm1.columns <= (end_time_sec/1000))])]
-#     wt_rtm1 = wt_rtm1.loc[:, wt_rtm1.columns.isin(wt_rtm1.columns[(wt_rtm1.columns >= (start_time_sec/1000)) * (wt_rtm1.columns <= (end_time_sec/1000))])]
-#     wt_central = wt_central.loc[:, wt_central.columns.isin(wt_central.columns[(wt_central.columns >= (start_time_sec/1000)) * (wt_central.columns <= (end_time_sec/1000))])]
-    
     norm = normalize_image(wt_ltm1)
     df_wt.append(norm)
     df_mean = np.add(df_mean, norm.values)
 
+
+#%%
+df_wt[5].shape
+
+
+#%%
 df_mean = df_mean / df.shape[0]
 
 
@@ -262,8 +251,6 @@ for wt in tqdm(df_wt):
     df_wt2.append(normalize_image(np.add(wt, -df_mean)))
 df_wt = df_wt2
 
-#%% [markdown]
-# # Keras
 
 #%%
 x = []
@@ -275,45 +262,43 @@ for wt in df_wt:
 x = np.array(x)
 y = cat.values
 
-
 #%%
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=28)
 
 
-
 #%%
-HP_NUM_UNITS = hp.HParam('num_units', hp.Discrete([128, 256, 512]))
-HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.3]))
-HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.0001, 0.00001]))
-HP_CNN_FILTER_1 = hp.HParam('filter_1', hp.Discrete([16, 64, 256]))
-HP_CNN_FILTER_2 = hp.HParam('filter_2', hp.Discrete([16, 64, 256]))
-HP_BATCH_NORM = hp.HParam('batch_norm', hp.Discrete([False, True]))
-HP_CNN_KERNEL_X_1 = hp.HParam('kernel_1_x', hp.Discrete([80, 30, 5]))
-HP_CNN_KERNEL_Y_1 = hp.HParam('kernel_1_y', hp.Discrete([80, 30, 5]))
-HP_CNN_KERNEL_X_2 = hp.HParam('kernel_2_x', hp.Discrete([80, 30, 5]))
-HP_CNN_KERNEL_Y_2 = hp.HParam('kernel_2_y', hp.Discrete([80, 30, 5]))
+HP_UNITS_1 = hp.HParam('UNITS_1', hp.Discrete([16, 64, 128]))
+HP_UNITS_2 = hp.HParam('UNITS_2', hp.Discrete([0, 16, 64]))
+HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.0001]))
+HP_CNN_FILTER_1 = hp.HParam('filter_1', hp.Discrete([8, 32, 64]))
+HP_CNN_KERNEL_1 = hp.HParam('kernel_1', hp.Discrete([5]))
+HP_CNN_FILTER_KERNEL_2 = hp.HParam('filter_kernel_2', hp.Discrete(['[0, 0]', '[8, 5]', '[8, 10]', '[32, 5]', '[32, 10]', '[64, 5]', '[64, 10]']))
 
-with tf.summary.create_file_writer('logs/78-hparam-tuning-v3').as_default():
+with tf.summary.create_file_writer('logs/81-small-v1').as_default():
     hp.hparams_config(
-        hparams=[HP_NUM_UNITS, HP_DROPOUT, HP_LEARNING_RATE, HP_CNN_KERNEL_X_1, HP_CNN_KERNEL_Y_1, HP_CNN_KERNEL_X_2, HP_CNN_KERNEL_Y_2, HP_CNN_FILTER_1, HP_CNN_FILTER_2, HP_BATCH_NORM],
+        hparams=[HP_UNITS_1, HP_UNITS_2, HP_LEARNING_RATE, HP_CNN_KERNEL_1, HP_CNN_FILTER_KERNEL_2, HP_CNN_FILTER_1],
         metrics=[hp.Metric('accuracy', display_name='Accuracy')],
     )
 
 
 #%%
 def train_test_model(logdir, hparams):
+    start = timer()
     classifier = tf.keras.Sequential()
-    classifier.add(tf.keras.layers.Conv2D(filters=hparams[HP_CNN_FILTER_1], kernel_size=(hparams[HP_CNN_KERNEL_X_1], hparams[HP_CNN_KERNEL_Y_1]), padding='same', activation='relu', input_shape=(x_train[0].shape[0], x_train[0].shape[1],1)))
-    if hparams[HP_BATCH_NORM]:
-        classifier.add(tf.keras.layers.BatchNormalization())
+    classifier.add(tf.keras.layers.Conv2D(filters=int(hparams[HP_CNN_FILTER_1]), kernel_size=int(hparams[HP_CNN_KERNEL_1]), activation='relu', input_shape=(x_train[0].shape[0], x_train[0].shape[1], 1)))
     classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
-    classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
-    classifier.add(tf.keras.layers.Conv2D(filters=hparams[HP_CNN_FILTER_2], kernel_size=(hparams[HP_CNN_KERNEL_X_2], hparams[HP_CNN_KERNEL_Y_2]), padding='same', activation='relu'))
-    classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
-    classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
-    classifier.add(tf.keras.layers.Flatten())
-    classifier.add(tf.keras.layers.Dense(hparams[HP_NUM_UNITS], activation='relu'))
-    classifier.add(tf.keras.layers.Dropout(hparams[HP_DROPOUT]))
+    classifier.add(tf.keras.layers.Dropout(0.4))
+
+    filter_kernel_2 = json.loads(hparams[HP_CNN_FILTER_KERNEL_2])
+    if int(filter_kernel_2[0]) > 0:
+        classifier.add(tf.keras.layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu'))
+        classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
+        classifier.add(tf.keras.layers.Dropout(0.4))
+    
+    classifier.add(tf.keras.layers.GlobalAvgPool2D())
+    classifier.add(tf.keras.layers.Dense(hparams[HP_UNITS_1], activation='relu'))
+    if int(hparams[HP_UNITS_2]) > 0:
+        classifier.add(tf.keras.layers.Dense(int(hparams[HP_UNITS_2]), activation='relu'))
     classifier.add(tf.keras.layers.Dense(1, activation='sigmoid'))
     classifier.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams[HP_LEARNING_RATE], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
@@ -324,57 +309,43 @@ def train_test_model(logdir, hparams):
     classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=100, callbacks=cb, verbose=0)
 
     _, accuracy = classifier.evaluate(x_test, y_test)
+    end = timer()
+    print(timedelta(seconds=end-start))
     return accuracy
 
-#%% [markdown]
-# # Random search
 
 #%%
 df_params = []
-for batch_norm in HP_BATCH_NORM.domain.values:
-    for dropout in HP_DROPOUT.domain.values:
-        for filter_1 in HP_CNN_FILTER_1.domain.values:
-            for filter_2 in HP_CNN_FILTER_2.domain.values:
-                for num_units in HP_NUM_UNITS.domain.values:
-                    for kernel_1_x in HP_CNN_KERNEL_X_1.domain.values:
-                        for kernel_1_y in HP_CNN_KERNEL_Y_1.domain.values:
-                            for kernel_2_x in HP_CNN_KERNEL_X_2.domain.values:
-                                for kernel_2_y in HP_CNN_KERNEL_Y_2.domain.values:
-                                    for lr in HP_LEARNING_RATE.domain.values:
-                                        hparams = {
-                                            'num_units': num_units,
-                                            'dropout': dropout,
-                                            'learning_rate': lr,
-                                            'kernel_1_x': kernel_1_x,
-                                            'kernel_1_y': kernel_1_y,
-                                            'kernel_2_x': kernel_2_x,
-                                            'kernel_2_y': kernel_2_y,
-                                            'filter_1': filter_1,
-                                            'filter_2': filter_2,
-                                            'batch_norm': batch_norm
-                                        }
-                                        df_params.append(hparams)
+for filter_1 in HP_CNN_FILTER_1.domain.values:
+    for filter_2 in HP_CNN_FILTER_KERNEL_2.domain.values:
+        for UNITS_1 in HP_UNITS_1.domain.values:
+            for UNITS_2 in HP_UNITS_2.domain.values:
+                for kernel_1 in HP_CNN_KERNEL_1.domain.values:
+                    for lr in HP_LEARNING_RATE.domain.values:
+                        hparams = {
+                            'UNITS_1': UNITS_1,
+                            'UNITS_2': UNITS_2,
+                            'learning_rate': lr,
+                            'kernel_1': kernel_1,
+                            'filter_1': filter_1,
+                            'filter_kernel_2': filter_2,
+                        }
+                        df_params.append(hparams)
 df_params = pd.DataFrame(df_params)
-df_params = df_params.sample(frac=1)
-
+df_params = df_params.sample(frac=1, random_state=65)
+df_params.head()
 
 #%%
 session_num = 0
-for idx, row in df_params.iterrows():
+for idx, row in tqdm(df_params.iterrows(), total=df_params.shape[0]):
     hparams = {
-        HP_NUM_UNITS: row['num_units'],
-        HP_DROPOUT: row['dropout'],
+        HP_UNITS_1: row['UNITS_1'],
+        HP_UNITS_2: row['UNITS_2'],
         HP_LEARNING_RATE: row['learning_rate'],
-        HP_CNN_KERNEL_X_1: row['kernel_1_x'],
-        HP_CNN_KERNEL_Y_1: row['kernel_1_y'],
-        HP_CNN_KERNEL_X_2: row['kernel_2_x'],
-        HP_CNN_KERNEL_Y_2: row['kernel_2_y'],
+        HP_CNN_KERNEL_1: row['kernel_1'],
         HP_CNN_FILTER_1: row['filter_1'],
-        HP_CNN_FILTER_2: row['filter_2'],
-        HP_BATCH_NORM: row['batch_norm']
+        HP_CNN_FILTER_KERNEL_2: row['filter_kernel_2']
     }
-    run_name = "run2-%d" % session_num
-    print('--- Starting trial: %s' % run_name)
-    print({h.name: hparams[h] for h in hparams})
-    train_test_model('logs/tensorboard/78-wavelet-hyper-v3/' + run_name, hparams)
+    run_name = "run1-%d" % session_num
+    train_test_model('logs/tensorboard/81-small-v1/' + run_name, hparams)
     session_num += 1

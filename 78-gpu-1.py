@@ -1,5 +1,6 @@
 # To add a new cell, type '#%%'
 # To add a new markdown cell, type '#%% [markdown]'
+# %%
 import glob
 import pandas as pd
 import mne
