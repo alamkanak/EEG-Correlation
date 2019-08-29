@@ -276,6 +276,33 @@ with tf.summary.create_file_writer('logs/83-small-v2').as_default():
     )
 
 #%%
+inputs = tf.keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1,))
+x = tf.keras.layers.Conv2D(64, kernel_size=7, activation='relu', padding='same')(inputs)
+x = tf.keras.layers.MaxPooling2D(pool_size=2)(x)
+
+x1 = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x)
+x1 = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x1)
+x1 = tf.keras.layers.Add()([x1, x])
+
+x2 = x = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x1)
+x2 = x = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x2)
+x2 = tf.keras.layers.Add()([x2, x1])
+
+x3 = x = tf.keras.layers.Conv2D(128, kernel_size=3, activation='relu', padding='same')(x2)
+x3 = x = tf.keras.layers.Conv2D(128, kernel_size=3, activation='relu', padding='same')(x3)
+x3 = tf.keras.layers.Concatenate()([x3, x2])
+
+x3 = tf.keras.layers.Flatten()(x3)
+x3 = tf.keras.layers.Dropout(0.4)(x3)
+x3 = tf.keras.layers.Dense(1000, activation='relu')(x3)
+predictions = layers.Dense(1, activation='softmax')(x3)
+
+model = tf.keras.Model(inputs=inputs, outputs=predictions)
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001, decay=0.00001), loss='binary_crossentropy', metrics=['accuracy'])
+tf.keras.utils.plot_model(model, to_file='model.png', show_shapes=True, show_layer_names=True)
+
+
+#%%
 def train_test_model(logdir, hparams):
     start = timer()
 
