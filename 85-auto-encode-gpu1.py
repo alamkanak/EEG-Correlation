@@ -235,24 +235,10 @@ for idx, epoch in tqdm(df.iterrows(), total=df.shape[0]):
 
 
 #%%
-df_wt[5].shape
-
-
-#%%
-# df_mean = df_mean / df.shape[0]
-
-
-#%%
-# df_wt2 = []
-# for wt in tqdm(df_wt):
-#     df_wt2.append(normalize_image(np.add(wt, -df_mean)))
-# df_wt = df_wt2
-
-
-#%%
 x = []
-for wt in df_wt:
-    img = np.array(wt.values)
+for wt in tqdm(df_wt):
+    img = normalize_image(wt)
+    img = np.array(img.values)
     img = resize(img, (160, 160))
     x.append(img.reshape(img.shape[0], img.shape[1], 1))
     
@@ -262,98 +248,80 @@ y = cat.values
 #%%
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=28)
 
+#%% Parameters
+random_state = 64
+logdir = 'logs/tensorboard/85-small-v1/'
+run_name = 'run1'
 
 #%%
-HP_NUM_UNITS = hp.HParam('num_units', hp.Discrete([1000, 64]))
-HP_DROPOUT = hp.HParam('dropout', hp.Discrete([0.2, 0.45]))
-HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.0001, 0.00001]))
-HP_DECAY = hp.HParam('decay', hp.Discrete([0.01, 0.0001]))
-
-with tf.summary.create_file_writer('logs/84-small-v1').as_default():
-    hp.hparams_config(
-        hparams=[HP_NUM_UNITS, HP_DROPOUT, HP_LEARNING_RATE, HP_DECAY],
-        metrics=[hp.Metric('accuracy', display_name='Accuracy')],
-    )
-
+HP_FILTER_1 = hp.HParam('filter_1', hp.Discrete([32, 64, 16]))
+HP_FILTER_2 = hp.HParam('filter_2', hp.Discrete([32, 64, 16, 8]))
+HP_KERNEL = hp.HParam('kernel', hp.Discrete([5, 10, 20, 50]))
+HP_LR = hp.HParam('lr', hp.Discrete([0.01, 0.0001]))
 
 #%%
-def train_test_model(logdir, hparams):
-    start = timer()
+def get_randomized_hyperparams():
+    df_params = []
+    for filter_1 in HP_FILTER_1.domain.values:
+        for filter_2 in HP_FILTER_2.domain.values:
+            for kernel in HP_KERNEL.domain.values:
+                for lr in HP_LR.domain.values:
+                    hparams = {
+                        'filter_1': filter_1,
+                        'filter_2': filter_2,
+                        'lr': lr,
+                        'kernel': kernel
+                    }
+                    df_params.append(hparams)
+    df_params = pd.DataFrame(df_params)
+    df_params = df_params.sample(frac=1, random_state=random_state)
+    print('Total hyperparameter combinations: ' + str(df_params.shape))
+    return df_params
 
-    inputs = tf.keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1,))
-    x = tf.keras.layers.Conv2D(64, kernel_size=7, activation='relu', padding='same')(inputs)
-    x = tf.keras.layers.MaxPooling2D(pool_size=2)(x)
+#%%
+def train_model(logdir, hparams):
+    input_img = tf.keras.layers.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1))
 
-    x1 = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x)
-    x1 = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x1)
-    x1 = tf.keras.layers.Add()([x1, x])
+    x = tf.keras.layers.Conv2D(int(hparams[HP_FILTER_1]), (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='relu', padding='same')(input_img)
+    x = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+    x = tf.keras.layers.Conv2D(int(hparams[HP_FILTER_2]), (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='relu', padding='same')(x)
+    x = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
+    x = tf.keras.layers.Conv2D(int(hparams[HP_FILTER_2]), (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='relu', padding='same')(x)
+    encoded = tf.keras.layers.MaxPooling2D((2, 2), padding='same')(x)
 
-    x2 = x = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x1)
-    x2 = x = tf.keras.layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x2)
-    x2 = tf.keras.layers.Add()([x2, x1])
+    x = tf.keras.layers.Conv2D(int(hparams[HP_FILTER_2]), (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='relu', padding='same')(encoded)
+    x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    x = tf.keras.layers.Conv2D(int(hparams[HP_FILTER_2]), (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='relu', padding='same')(x)
+    x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    x = tf.keras.layers.Conv2D(int(hparams[HP_FILTER_1]), (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='relu', padding='same')(x)
+    x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    decoded = tf.keras.layers.Conv2D(1, (int(hparams[HP_KERNEL]), int(hparams[HP_KERNEL])), activation='sigmoid', padding='same')(x)
 
-    x3 = x = tf.keras.layers.Conv2D(128, kernel_size=3, activation='relu', padding='same')(x2)
-    x3 = x = tf.keras.layers.Conv2D(128, kernel_size=3, activation='relu', padding='same')(x3)
-    x3 = tf.keras.layers.Concatenate()([x3, x2])
-
-    x3 = tf.keras.layers.Flatten()(x3)
-    x3 = tf.keras.layers.Dropout(hparams[HP_DROPOUT])(x3)
-    x3 = tf.keras.layers.Dense(hparams[HP_NUM_UNITS], activation='relu')(x3)
-    predictions = layers.Dense(1, activation='softmax')(x3)
-
-    model = tf.keras.Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams[HP_LEARNING_RATE], decay=hparams[HP_DECAY]), loss='binary_crossentropy', metrics=['accuracy'])
-
-    if not os.path.exists(logdir):
-        os.makedirs(logdir)
-
-    tf.keras.utils.plot_model(model, to_file='model.png', show_shapes=True, show_layer_names=True)
+    autoencoder = tf.keras.Model(input_img, decoded)
+    autoencoder.compile(optimizer=tf.keras.optimizers.Adadelta(learning_rate=hparams[HP_LR]), loss='binary_crossentropy', metrics=['accuracy'])
+    
     cb = [
         tf.keras.callbacks.TensorBoard(log_dir=logdir),
         hp.KerasCallback(logdir, hparams)
     ]
-    model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=150, callbacks=cb, verbose=0)
-    end = timer()
-    print(timedelta(seconds=end-start))
-    return end
+    autoencoder.fit(x_train, x_train, validation_data=(x_test, x_test), batch_size=64, epochs=150, callbacks=cb, verbose=0)
+    return autoencoder
 
 
-#%%
-df_params = []
-
-for dropout in HP_DROPOUT.domain.values:
-    for num_units in HP_NUM_UNITS.domain.values:
-        for lr in HP_LEARNING_RATE.domain.values:
-            for decay in HP_DECAY.domain.values:
-                hparams = {
-                    'num_units': num_units,
-                    'dropout': dropout,
-                    'learning_rate': lr,
-                    'decay': decay
-                }
-                df_params.append(hparams)
-df_params = pd.DataFrame(df_params)
-df_params = df_params.sample(frac=1, random_state=64)
-df_params.head()
-
-
-#%%
-df_params.shape
-
-#%%
+#%% Train
+df_params = get_randomized_hyperparams()
 session_num = 0
 for idx, row in tqdm(df_params.iterrows(), total=df_params.shape[0]):
     hparams = {
-        HP_NUM_UNITS: row['num_units'],
-        HP_DROPOUT: row['dropout'],
-        HP_LEARNING_RATE: row['learning_rate'],
-        HP_DECAY: row['decay']
+        HP_FILTER_1: row['filter_1'],
+        HP_FILTER_2: row['filter_2'],
+        HP_LR: row['lr'],
+        HP_KERNEL: row['kernel']
     }
-    run_name = "run1-%d" % session_num
+    run_name = run_name + '-' + str(session_num)
     print('--- Starting trial: %s' % run_name)
     print({h.name: hparams[h] for h in hparams})
-    train_test_model('logs/tensorboard/84-small-v1/'+run_name, hparams)
+    model = train_model(logdir+run_name, hparams)
     session_num += 1
-
 
 #%%
