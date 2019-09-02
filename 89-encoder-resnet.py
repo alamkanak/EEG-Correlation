@@ -38,12 +38,14 @@ import pickle
 import os.path
 from mpl_toolkits.mplot3d import axes3d
 
-from keras.layers import Dense, Conv2D, Input, MaxPooling2D, Flatten, AveragePooling2D, GlobalAveragePooling2D, UpSampling2D
+from keras.layers import Dense, Conv2D, Input, MaxPooling2D, Flatten, AveragePooling2D, GlobalAveragePooling2D, UpSampling2D, Dropout, Concatenate
 from keras.models import Model
 from keras import optimizers
 from keras import callbacks
 from keras.utils import plot_model
 from keras.utils import multi_gpu_model
+from keras.models import load_model
+from keras.models import Sequential
 
 import timeit
 from skimage.transform import resize
@@ -253,37 +255,52 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random
 
 #%% Parameters
 random_state = 64
-logdir = 'logs/tensorboard/87-tf1-v1/'
-run_name = 'run2'
+modeldir = 'logs/tensorboard/87-tf1-v1/run2'
+logdir = 'logs/tensorboard/89-tf1-v1/'
+run_name = 'run3-128-64'
 
-#%%
-def train_model(logdir, hparams):
-    input_img = Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1))
+#%% Open model
+model = load_model(modeldir + '/model.h5').layers[-2]
+model.summary()
 
-    x = Conv2D(int(hparams['filter_1']), (int(hparams['kernel']), int(hparams['kernel'])), activation='relu', padding='same')(input_img)
-    x = MaxPooling2D((2, 2), padding='same')(x)
-    x = Conv2D(int(hparams['filter_2']), (int(hparams['kernel']), int(hparams['kernel'])), activation='relu', padding='same')(x)
-    x = MaxPooling2D((2, 2), padding='same')(x)
-    x = Conv2D(int(hparams['filter_2']), (int(hparams['kernel']), int(hparams['kernel'])), activation='relu', padding='same')(x)
-    encoded = MaxPooling2D((2, 2), padding='same')(x)
+#%% Delete decoder layers
+layers_to_delete = 7
+for i in range(layers_to_delete):
+    model.layers.pop()
+model.summary()
 
-    x = Conv2D(int(hparams['filter_2']), (int(hparams['kernel']), int(hparams['kernel'])), activation='relu', padding='same')(encoded)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(int(hparams['filter_2']), (int(hparams['kernel']), int(hparams['kernel'])), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 2))(x)
-    x = Conv2D(int(hparams['filter_1']), (int(hparams['kernel']), int(hparams['kernel'])), activation='relu', padding='same')(x)
-    x = UpSampling2D((2, 2))(x)
-    decoded = Conv2D(1, (int(hparams['kernel']), int(hparams['kernel'])), activation='sigmoid', padding='same')(x)
+#%% Set trainable to false
+for layer in model.layers:
+    layer.trainable = False
+model.summary()
 
-    autoencoder = Model(input_img, decoded)
-    plot_model(autoencoder, to_file='model.png', show_shapes=True, show_layer_names=False)
-    model = multi_gpu_model(autoencoder, gpus=2)
-    model.compile(optimizer=optimizers.Adam(lr=hparams['lr']), loss='binary_crossentropy', metrics=['accuracy'])
+#%% Add classification tail.
+def train_model(logdir, hp):
+    model2 = Flatten()(model.layers[-1].output)
+    
+    inp2 = Conv2D(32, (20, 20), strides=(2, 2))(model.layers[0].output)
+    inp2 = MaxPooling2D((2,2))(inp2)
+    inp2 = Flatten()(inp2)
+    inp2 = Dropout(hp['dropout'])(inp2)
+    model2 = Concatenate()([model2, inp2])
+
+    for unit in hp['units']:
+        model2 = Dense(unit, activation='relu')(model2)
+        model2 = Dropout(hp['dropout'])(model2)
+    model2 = Dense(1, activation='sigmoid')(model2)
+
+    model2 = Model(input=model.layers[0].input, output=model2)
+    model2.summary()
+    model2.layers[0].trainable = False
+
+    plot_model(model2, to_file='model3.png', show_shapes=True, show_layer_names=False)
+    model2 = multi_gpu_model(model2, gpus=2)
+    model2.compile(optimizer=optimizers.Adam(lr=hp['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
         callbacks.TensorBoard(log_dir=logdir)
     ]
-    history = model.fit(x_train, x_train, validation_data=(x_test, x_test), batch_size=64, epochs=3000, callbacks=cb, verbose=2)
+    history = model2.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=8, epochs=1000, callbacks=cb, verbose=2)
     
     # Plot training & validation accuracy values
     plt.plot(history.history['acc'])
@@ -302,27 +319,11 @@ def train_model(logdir, hparams):
     plt.xlabel('Epoch')
     plt.legend(['Train', 'Test'], loc='upper left')
     plt.show()
-    return model
-
-
-#%%
-model = train_model(logdir + run_name, {'filter_1': 32, 'filter_2': 16, 'kernel': 10, 'lr': 0.0001})
+    return model2
 
 #%%
-def plot_prediction(idx):
-    y_pred = model.predict(x_test[idx:idx+1])
-    plt.figure()
-    sns.heatmap(y_pred[0, :, :, 0])
-    plt.title('Predicted ' + str(idx))
-    plt.figure()
-    sns.heatmap(x_test[idx, :, :, 0])
-    plt.title('Actual ' + str(idx))
+model2 = train_model(logdir + run_name, {'units': [128, 64], 'dropout': 0.5, 'lr': 0.0001})
 
-#%%
-for i in range(0, 10):
-    plot_prediction(i)
-
-#%% Save model weights.
-model.save(logdir + run_name + '/model.h5')
-
-#%%
+#%% 
+y_pred = model2.predict(x_test)
+y_pred = y_pred > 0.5
