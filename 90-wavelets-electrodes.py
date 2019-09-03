@@ -11,7 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import StringIO
 import numpy as np
-from tqdm import tqdm_notebook
+from tqdm import tqdm
 
 import multiprocessing
 from oct2py import octave
@@ -24,6 +24,7 @@ from wavelets import WaveletAnalysis
 import scipy.ndimage
 import pickle
 import os
+import seaborn as sns
 
 
 #%%
@@ -164,7 +165,7 @@ def save_wavelets_of_epoch(save_destination, epoch_num, epoch, path_segments):
 #%%
 num_cores = multiprocessing.cpu_count()
 save_destination = 'wavelets-90'
-for eeg_path in tqdm_notebook(eegs):
+for eeg_path in tqdm(eegs):
     segments = eeg_path.split('/')
     segments = segments[:-1]
     epochs = read_eeg(eeg_path)
@@ -180,8 +181,9 @@ for wavelet_path in glob.glob(save_destination + '/*.pickle')[0:8]:
     with open(wavelet_path, 'rb') as f:
         wavelet = pickle.load(f)
         fig = plt.figure(figsize=(8,8))
-        plt.imshow(wavelet.values)
-        plt.axis('off')
+        # plt.imshow(wavelet.values)
+        # plt.axis('off')
+        sns.heatmap(wavelet.values)
 
 
 #%%
