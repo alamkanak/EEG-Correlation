@@ -298,7 +298,8 @@ def train_model(logdir, hp):
     model2.compile(optimizer=optimizers.Adam(lr=hp['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
-        callbacks.TensorBoard(log_dir=logdir)
+        callbacks.TensorBoard(log_dir=logdir),
+        hp.KerasCallback(logdir, hparams)
     ]
     history = model2.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=8, epochs=1000, callbacks=cb, verbose=2)
     

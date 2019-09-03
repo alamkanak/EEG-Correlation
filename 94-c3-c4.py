@@ -263,50 +263,62 @@ for wt in tqdm(df_wt_c4):
 df_wt_c4 = df_wt_c4_2
 
 #%%
-x = []
+x_c3 = []
 for wt in tqdm(df_wt_c3):
     img = np.array(wt.values)
     img = resize(img, (160, 160))
-    x.append(img.reshape(img.shape[0], img.shape[1], 1))
-    
-x = np.array(x)
+    x_c3.append(img.reshape(img.shape[0], img.shape[1], 1))
+x_c4 = []
+for wt in tqdm(df_wt_c4):
+    img = np.array(wt.values)
+    img = resize(img, (160, 160))
+    x_c4.append(img.reshape(img.shape[0], img.shape[1], 1))
+
+x = []
+for i in range(len(x_c3)):
+    x.append((np.array(x_c3[i]), np.array(x_c4[i])))
 y = cat.values
 
 #%%
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=28)
 
+#%% 
+model_path = 'logs/tensorboard/93-c3-c4-v1/'
+model_c3 = tf.keras.models.load_model(model_path + 'c3.h5')
+model_c4 = tf.keras.models.load_model(model_path + 'c4.h5')
+
 #%%
 def train_test_model(logdir, hparams):
-    filter_kernel_2 = json.loads(hparams['filter_kernel_2'])
     
-    inputs = tf.keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1), name='c3_input')
-    model = tf.keras.layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(inputs)
-    model = tf.layers.MaxPooling2D(pool_size=2)(model)
-    model = tf.layers.Dropout(0.4)(model)
-    model = tf.layers.Dense(1, activation='softmax')(model)
-    if int(filter_kernel_2[0]) > 0:
-        model = tf.keras.layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(model)
-        model = tf.keras.layers.MaxPooling2D(pool_size=2)(model)
-        model = tf.keras.layers.Dropout(0.4)(model)
-    model = tf.keras.layers.GlobalAvgPool2D()(model)
-    model = tf.keras.layers.Dense(hparams['units_1'], activation='relu')(model)
-    if int(hparams['units_2']) > 0:
-        model = tf.keras.layers.Dense(int(hparams['units_2']), activation='relu')(model)
-    model = tf.keras.layers.Dense(1, activation='sigmoid')(model)
-    model = tf.keras.Model(inputs=inputs, outputs=model, name='c3_model')
-
+    model_c3 = tf.keras.Flatten()(model_c3.layers[-1].output)
+    model_c4 = tf.keras.Flatten()(model_c4.layers[-1].output)
+    model = tf.keras.Concatenate()([model_c3, model_c4])
+    for unit in hparams['units']:
+        model = Dense(unit, activation='relu')(model)
+        model = Dropout(hp['dropout'])(model)
+    model = Dense(1, activation='sigmoid')(model)
+    model = Model(inputs=[model_c3.layers[0].input, model_c4.layers[0].input], output=model)
+    model.summary()
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
         tf.keras.callbacks.TensorBoard(log_dir=logdir)
     ]
-    history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
+    history = classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
     return classifier, history
 
 #%%
+hparams = {
+    HP_UNITS_1: 128,
+    HP_UNITS_2: 16,
+    HP_LEARNING_RATE: 0.0001,
+    HP_CNN_KERNEL_1: 5,
+    HP_CNN_FILTER_1: 8,
+    HP_CNN_FILTER_KERNEL_2: '[8, 10]'
+}
 run_name = "run-c3"
 logdir = 'logs/tensorboard/93-c3-c4-v1/'
-model, history = train_test_model(logdir + run_name, {'units_1': 128, 'units_2': 16, 'lr': 0.0001, 'kernel_1': 5, 'filter_1': 8, 'filter_kernel_2': '[8, 10]'})
+model, history = train_test_model(logdir + run_name, hparams)
 
 #%%
 model.save(logdir + 'c3.h5')
