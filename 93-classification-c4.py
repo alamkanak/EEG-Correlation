@@ -275,60 +275,38 @@ y = cat.values
 #%%
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=28)
 
-
-#%%
-HP_UNITS_1 = hp.HParam('units_1', hp.Discrete([16, 64, 128]))
-HP_UNITS_2 = hp.HParam('units_2', hp.Discrete([0, 16, 64]))
-HP_LEARNING_RATE = hp.HParam('learning_rate', hp.Discrete([0.0001]))
-HP_CNN_FILTER_1 = hp.HParam('filter_1', hp.Discrete([8, 32, 64]))
-HP_CNN_KERNEL_1 = hp.HParam('kernel_1', hp.Discrete([10]))
-HP_CNN_FILTER_KERNEL_2 = hp.HParam('filter_kernel_2', hp.Discrete(['[0, 0]', '[8, 5]', '[8, 10]', '[32, 5]', '[32, 10]', '[64, 5]', '[64, 10]']))
-
-with tf.summary.create_file_writer('logs/93-c3-c4-v1').as_default():
-    hp.hparams_config(
-        hparams=[HP_UNITS_1, HP_UNITS_2, HP_LEARNING_RATE, HP_CNN_KERNEL_1, HP_CNN_FILTER_KERNEL_2, HP_CNN_FILTER_1],
-        metrics=[hp.Metric('accuracy', display_name='Accuracy')],
-    )
-
-
 #%%
 def train_test_model(logdir, hparams):
-    classifier = tf.keras.Sequential()
-    classifier.add(tf.keras.layers.Conv2D(filters=int(hparams[HP_CNN_FILTER_1]), kernel_size=int(hparams[HP_CNN_KERNEL_1]), activation='relu', input_shape=(x_train[0].shape[0], x_train[0].shape[1], 1)))
-    classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
-    classifier.add(tf.keras.layers.Dropout(0.4))
-
-    filter_kernel_2 = json.loads(hparams[HP_CNN_FILTER_KERNEL_2])
-    if int(filter_kernel_2[0]) > 0:
-        classifier.add(tf.keras.layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu'))
-        classifier.add(tf.keras.layers.MaxPooling2D(pool_size=2))
-        classifier.add(tf.keras.layers.Dropout(0.4))
+    filter_kernel_2 = json.loads(hparams['filter_kernel_2'])
     
-    classifier.add(tf.keras.layers.GlobalAvgPool2D())
-    classifier.add(tf.keras.layers.Dense(hparams[HP_UNITS_1], activation='relu'))
-    if int(hparams[HP_UNITS_2]) > 0:
-        classifier.add(tf.keras.layers.Dense(int(hparams[HP_UNITS_2]), activation='relu'))
-    classifier.add(tf.keras.layers.Dense(1, activation='sigmoid'))
-    classifier.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams[HP_LEARNING_RATE], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    inputs = tf.keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1), name='c4_input')
+    model = tf.keras.layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(inputs)
+    model = tf.layers.MaxPooling2D(pool_size=2)(model)
+    model = tf.layers.Dropout(0.4)(model)
+    model = tf.layers.Dense(1, activation='softmax')(model)
+    if int(filter_kernel_2[0]) > 0:
+        model = tf.keras.layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(model)
+        model = tf.keras.layers.MaxPooling2D(pool_size=2)(model)
+        model = tf.keras.layers.Dropout(0.4)(model)
+    model = tf.keras.layers.GlobalAvgPool2D()(model)
+    model = tf.keras.layers.Dense(hparams['units_1'], activation='relu')(model)
+    if int(hparams['units_2']) > 0:
+        model = tf.keras.layers.Dense(int(hparams['units_2']), activation='relu')(model)
+    model = tf.keras.layers.Dense(1, activation='sigmoid')(model)
+    model = tf.keras.Model(inputs=inputs, outputs=model, name='c4_model')
+
+    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
         tf.keras.callbacks.TensorBoard(log_dir=logdir)
     ]
-    history = classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
+    history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
     return classifier, history
 
 #%%
-hparams = {
-    HP_UNITS_1: 128,
-    HP_UNITS_2: 16,
-    HP_LEARNING_RATE: 0.0001,
-    HP_CNN_KERNEL_1: 5,
-    HP_CNN_FILTER_1: 8,
-    HP_CNN_FILTER_KERNEL_2: '[8, 10]'
-}
 run_name = "run-c4"
 logdir = 'logs/tensorboard/93-c3-c4-v1/'
-model, history = train_test_model(logdir + run_name, hparams)
+model, history = train_test_model(logdir + run_name, {'units_1': 128, 'units_2': 16, 'lr': 0.0001, 'kernel_1': 5, 'filter_1': 8, 'filter_kernel_2': '[8, 10]'})
 
 #%%
 model.save(logdir + 'c4.h5')
