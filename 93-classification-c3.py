@@ -281,9 +281,9 @@ def train_test_model(logdir, hparams):
     
     inputs = tf.keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1), name='c3_input')
     model = tf.keras.layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(inputs)
-    model = tf.layers.MaxPooling2D(pool_size=2)(model)
-    model = tf.layers.Dropout(0.4)(model)
-    model = tf.layers.Dense(1, activation='softmax')(model)
+    model = tf.keras.layers.MaxPooling2D(pool_size=2)(model)
+    model = tf.keras.layers.Dropout(0.4)(model)
+    model = tf.keras.layers.Dense(1, activation='softmax')(model)
     if int(filter_kernel_2[0]) > 0:
         model = tf.keras.layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(model)
         model = tf.keras.layers.MaxPooling2D(pool_size=2)(model)

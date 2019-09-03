@@ -281,6 +281,16 @@ y = cat.values
 
 #%%
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=28)
+x_train_c3 = []
+x_test_c3 = []
+x_train_c4 = []
+x_test_c4 = []
+for item in x_train:
+    x_train_c3.append(item[0])
+    x_train_c4.append(item[1])
+for item in x_test:
+    x_test_c3.append(item[0])
+    x_test_c4.append(item[1])
 
 #%% 
 model_path = 'logs/tensorboard/93-c3-c4-v1/'
@@ -304,7 +314,7 @@ def train_test_model(logdir, hparams):
     cb = [
         tf.keras.callbacks.TensorBoard(log_dir=logdir)
     ]
-    history = classifier.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
+    history = classifier.fit({'c3_input': x_train_c3, 'c4_input': x_train_c4}, y_train, validation_data=({'c3_input': x_test_c3, 'c4_input': x_test_c4}, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
     return classifier, history
 
 #%%
