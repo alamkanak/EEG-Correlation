@@ -22,8 +22,6 @@ from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from keras_tqdm import TQDMNotebookCallback
-from tensorboard.plugins.hparams import api as hp
-from livelossplot.tf_keras import PlotLossesCallback
 
 import autosklearn.regression
 import sklearn.model_selection
@@ -40,7 +38,6 @@ import json
 import pickle
 import os.path
 from mpl_toolkits.mplot3d import axes3d
-import tensorflow as tf
 from tensorflow.keras import layers
 import timeit
 from skimage.transform import resize
@@ -48,6 +45,19 @@ from timeit import default_timer as timer
 from datetime import timedelta
 import json
 
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.models import Model
+from tensorflow.keras import optimizers
+from tensorflow.keras import callbacks
+
+# import keras
+# from keras import layers
+# from keras.models import Model
+# from keras import optimizers
+# from keras import callbacks
+# from keras.utils import plot_model
 #%%
 eeglab_path = '/home/raquib/Documents/MATLAB/eeglab2019_0/functions/'
 octave.addpath(eeglab_path + 'guifunc')
@@ -279,29 +289,28 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random
 def train_test_model(logdir, hparams):
     filter_kernel_2 = json.loads(hparams['filter_kernel_2'])
     
-    inputs = tf.keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1), name='c4_input')
-    model = tf.keras.layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(inputs)
-    model = tf.keras.layers.MaxPooling2D(pool_size=2)(model)
-    model = tf.keras.layers.Dropout(0.4)(model)
-    model = tf.keras.layers.Dense(1, activation='softmax')(model)
+    inputs = keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1), name='c4_input')
+    model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(inputs)
+    model = layers.MaxPooling2D(pool_size=2)(model)
+    model = layers.Dropout(0.4)(model)
     if int(filter_kernel_2[0]) > 0:
-        model = tf.keras.layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(model)
-        model = tf.keras.layers.MaxPooling2D(pool_size=2)(model)
-        model = tf.keras.layers.Dropout(0.4)(model)
-    model = tf.keras.layers.GlobalAvgPool2D()(model)
-    model = tf.keras.layers.Dense(hparams['units_1'], activation='relu')(model)
+        model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(model)
+        model = layers.MaxPooling2D(pool_size=2)(model)
+        model = layers.Dropout(0.4)(model)
+    model = layers.GlobalAvgPool2D()(model)
+    model = layers.Dense(hparams['units_1'], activation='relu')(model)
     if int(hparams['units_2']) > 0:
-        model = tf.keras.layers.Dense(int(hparams['units_2']), activation='relu')(model)
-    model = tf.keras.layers.Dense(1, activation='sigmoid')(model)
-    model = tf.keras.Model(inputs=inputs, outputs=model, name='c4_model')
+        model = layers.Dense(int(hparams['units_2']), activation='relu')(model)
+    model = layers.Dense(1, activation='sigmoid')(model)
+    model = Model(inputs=inputs, outputs=model, name='c4_model')
 
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
-        tf.keras.callbacks.TensorBoard(log_dir=logdir)
+        callbacks.TensorBoard(log_dir=logdir)
     ]
     history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
-    return classifier, history
+    return model, history
 
 #%%
 run_name = "run-c4"

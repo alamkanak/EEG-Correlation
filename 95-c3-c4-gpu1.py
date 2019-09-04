@@ -22,6 +22,8 @@ from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from keras_tqdm import TQDMNotebookCallback
+from tensorboard.plugins.hparams import api as hp
+from livelossplot.tf_keras import PlotLossesCallback
 
 import autosklearn.regression
 import sklearn.model_selection
@@ -38,7 +40,6 @@ import json
 import pickle
 import os.path
 from mpl_toolkits.mplot3d import axes3d
-from tensorflow.keras import layers
 import timeit
 from skimage.transform import resize
 from timeit import default_timer as timer
@@ -47,10 +48,10 @@ import json
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.models import Model
-from tensorflow.keras import optimizers
-from tensorflow.keras import callbacks
+from tensorflow.keras import layers, optimizers, callbacks
+from tensorflow.keras.models import Model, load_model
+from tensorboard.plugins.hparams import api as hp
+from tensorflow.keras.utils import plot_model
 
 # import keras
 # from keras import layers
@@ -58,31 +59,6 @@ from tensorflow.keras import callbacks
 # from keras import optimizers
 # from keras import callbacks
 # from keras.utils import plot_model
-#%%
-eeglab_path = '/home/raquib/Documents/MATLAB/eeglab2019_0/functions/'
-octave.addpath(eeglab_path + 'guifunc')
-octave.addpath(eeglab_path + 'popfunc')
-octave.addpath(eeglab_path + 'adminfunc')
-octave.addpath(eeglab_path + 'sigprocfunc')
-octave.addpath(eeglab_path + 'miscfunc')
-
-
-#%%
-experiment = 'data/original/*/*'
-meps = sorted(glob.glob(experiment + '/mep/*/*.txt'))
-mep_present = len(meps) > 0
-eegs = sorted(glob.glob(experiment + '/eeg/*/clean-prestimulus.set'))
-eeg_present = len(eegs) > 0
-cmaps = sorted(glob.glob(experiment + '/cmap/*.xlsx'))
-cmap_present = len(cmaps) > 0
-all_present = mep_present and eeg_present and cmap_present
-print(all_present)
-
-
-#%%
-print('EEG count: ' + str(len(eegs)))
-print('MEP count: ' + str(len(meps)))
-print('CMAP count: ' + str(len(cmaps)))
 
 #%%
 eegs = [
@@ -273,49 +249,126 @@ for wt in tqdm(df_wt_c4):
 df_wt_c4 = df_wt_c4_2
 
 #%%
-x = []
+x_c3 = []
 for wt in tqdm(df_wt_c3):
     img = np.array(wt.values)
     img = resize(img, (160, 160))
-    x.append(img.reshape(img.shape[0], img.shape[1], 1))
-    
-x = np.array(x)
+    x_c3.append(img.reshape(img.shape[0], img.shape[1], 1))
+x_c4 = []
+for wt in tqdm(df_wt_c4):
+    img = np.array(wt.values)
+    img = resize(img, (160, 160))
+    x_c4.append(img.reshape(img.shape[0], img.shape[1], 1))
+
+x = []
+for i in range(len(x_c3)):
+    x.append((np.array(x_c3[i]), np.array(x_c4[i])))
 y = cat.values
 
 #%%
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=28)
+x_train_c3 = []
+x_test_c3 = []
+x_train_c4 = []
+x_test_c4 = []
+for item in x_train:
+    x_train_c3.append(item[0])
+    x_train_c4.append(item[1])
+for item in x_test:
+    x_test_c3.append(item[0])
+    x_test_c4.append(item[1])
+
+#%% 
+model_path = 'logs/tensorboard/93-c3-c4-v1/'
+random_state = 64
+run_name = "run-c3-c4-1"
+logdir = 'logs/tensorboard/95-c3-c4-v1/'
+
+#%%
+# tf.keras.backend.clear_session()
+# model_c3 = load_model(model_path + 'c3.h5')
+# model_c4 = load_model(model_path + 'c4.h5')
 
 #%%
 def train_test_model(logdir, hparams):
     filter_kernel_2 = json.loads(hparams['filter_kernel_2'])
-    
-    inputs = keras.Input(shape=(x_train[0].shape[0], x_train[0].shape[1], 1), name='c3_input')
-    model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(inputs)
-    model = layers.MaxPooling2D(pool_size=2)(model)
-    model = layers.Dropout(0.4)(model)
-    if int(filter_kernel_2[0]) > 0:
-        model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(model)
-        model = layers.MaxPooling2D(pool_size=2)(model)
-        model = layers.Dropout(0.4)(model)
-    model = layers.GlobalAvgPool2D()(model)
-    model = layers.Dense(hparams['units_1'], activation='relu')(model)
-    if int(hparams['units_2']) > 0:
-        model = layers.Dense(int(hparams['units_2']), activation='relu')(model)
-    model = layers.Dense(1, activation='sigmoid')(model)
-    model = Model(inputs=inputs, outputs=model, name='c3_model')
 
+    # C3 Convolution.
+    c3_input = keras.Input(shape=(x_train_c3[0].shape[0], x_train_c3[0].shape[1], 1), name='c3_input')
+    c3_model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(c3_input)
+    c3_model = layers.MaxPooling2D(pool_size=2)(c3_model)
+    c3_model = layers.Dropout(0.4)(c3_model)
+    if int(filter_kernel_2[0]) > 0:
+        c3_model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(c3_model)
+        c3_model = layers.MaxPooling2D(pool_size=2)(c3_model)
+        c3_model = layers.Dropout(0.4)(c3_model)
+    c3_model = layers.Flatten()(c3_model)
+
+    # C4 Convolution.
+    c4_input = keras.Input(shape=(x_train_c3[0].shape[0], x_train_c3[0].shape[1], 1), name='c4_input')
+    c4_model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(c4_input)
+    c4_model = layers.MaxPooling2D(pool_size=2)(c4_model)
+    c4_model = layers.Dropout(0.4)(c4_model)
+    if int(filter_kernel_2[0]) > 0:
+        c4_model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(c4_model)
+        c4_model = layers.MaxPooling2D(pool_size=2)(c4_model)
+        c4_model = layers.Dropout(0.4)(c4_model)
+    c4_model = layers.Flatten()(c4_model)
+
+    # Dense concatenation.
+    model = layers.Concatenate()([c3_model, c4_model])
+    for unit in hparams['units']:
+        model = layers.Dense(unit, activation='relu')(model)
+        model = layers.Dropout(hparams['dropout'])(model)
+    model = layers.Dense(1, activation='sigmoid')(model)
+
+    model = tf.keras.models.Model(inputs=[c3_input, c4_input], outputs=model)
+    model.summary()
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
+    plot_model(model, logdir + '/model.png', show_shapes=True, show_layer_names=False)
     model.compile(optimizer=optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
-    cb = [
-        callbacks.TensorBoard(log_dir=logdir)
-    ]
-    history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
-    return model, history
+    # cb = [
+    #     callbacks.TensorBoard(log_dir=logdir),
+    #     hp.KerasCallback(logdir, hparams)
+    # ]
+
+    # plot_model('model.png')
+    # history = classifier.fit({'c3_input': x_train_c3, 'c4_input': x_train_c4}, y_train, validation_data=({'c3_input': x_test_c3, 'c4_input': x_test_c4}, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
+    # return classifier, history
+
 
 #%%
-run_name = "run-c3"
-logdir = 'logs/tensorboard/93-c3-c4-v1/'
-model, history = train_test_model(logdir + run_name, {'units_1': 128, 'units_2': 16, 'lr': 0.0001, 'kernel_1': 5, 'filter_1': 8, 'filter_kernel_2': '[8, 10]'})
+def get_randomized_hyperparams():
+    df_params = []
+    for units in [[128, 64], [128], [64, 8], [32]]:
+        for dropout in [0.3, 0.5]:
+            for lr in [0.0001, 0.00001, 0.01]:
+                for kernel_1 in [5]:
+                    for filter_1 in [8]:
+                        for filter_kernel_2 in ['[8, 10]']:
+                            hparams = {
+                                'units': units,
+                                'dropout': dropout,
+                                'lr': lr,
+                                'kernel_1': kernel_1,
+                                'filter_1': filter_1,
+                                'filter_kernel_2': filter_kernel_2
+                            }
+                            df_params.append(hparams)
+    df_params = pd.DataFrame(df_params)
+    df_params = df_params.sample(frac=1, random_state=random_state)
+    print('Total hyperparameter combinations: ' + str(df_params.shape))
+    return df_params
 
 #%%
-model.save(logdir + 'c3.h5')
+df_hparams = get_randomized_hyperparams()
+df_hparams.head()
+
+#%%
+for row in tqdm(df_hparams.iterrows(), total=df_hparams.shape[0]):
+    train_test_model(logdir + run_name, row[1])
+    break
+
+#%%

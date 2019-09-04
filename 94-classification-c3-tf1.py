@@ -45,19 +45,12 @@ from timeit import default_timer as timer
 from datetime import timedelta
 import json
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.models import Model
-from tensorflow.keras import optimizers
-from tensorflow.keras import callbacks
-
-# import keras
-# from keras import layers
-# from keras.models import Model
-# from keras import optimizers
-# from keras import callbacks
-# from keras.utils import plot_model
+import keras
+from keras import layers
+from keras.models import Model
+from keras import optimizers
+from keras import callbacks
+from keras.utils import plot_model
 #%%
 eeglab_path = '/home/raquib/Documents/MATLAB/eeglab2019_0/functions/'
 octave.addpath(eeglab_path + 'guifunc')
@@ -304,7 +297,7 @@ def train_test_model(logdir, hparams):
     model = layers.Dense(1, activation='sigmoid')(model)
     model = Model(inputs=inputs, outputs=model, name='c3_model')
 
-    model.compile(optimizer=optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=optimizers.Adam(lr=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
     cb = [
         callbacks.TensorBoard(log_dir=logdir)
@@ -314,7 +307,7 @@ def train_test_model(logdir, hparams):
 
 #%%
 run_name = "run-c3"
-logdir = 'logs/tensorboard/93-c3-c4-v1/'
+logdir = 'logs/tensorboard/94-c3-c4-v1/'
 model, history = train_test_model(logdir + run_name, {'units_1': 128, 'units_2': 16, 'lr': 0.0001, 'kernel_1': 5, 'filter_1': 8, 'filter_kernel_2': '[8, 10]'})
 
 #%%

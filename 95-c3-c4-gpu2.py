@@ -40,39 +40,25 @@ import json
 import pickle
 import os.path
 from mpl_toolkits.mplot3d import axes3d
-import tensorflow as tf
-from tensorflow.keras import layers
 import timeit
 from skimage.transform import resize
 from timeit import default_timer as timer
 from datetime import timedelta
 import json
 
-#%%
-eeglab_path = '/home/raquib/Documents/MATLAB/eeglab2019_0/functions/'
-octave.addpath(eeglab_path + 'guifunc')
-octave.addpath(eeglab_path + 'popfunc')
-octave.addpath(eeglab_path + 'adminfunc')
-octave.addpath(eeglab_path + 'sigprocfunc')
-octave.addpath(eeglab_path + 'miscfunc')
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers, optimizers, callbacks
+from tensorflow.keras.models import Model, load_model
+from tensorboard.plugins.hparams import api as hp
+from tensorflow.keras.utils import plot_model
 
-
-#%%
-experiment = 'data/original/*/*'
-meps = sorted(glob.glob(experiment + '/mep/*/*.txt'))
-mep_present = len(meps) > 0
-eegs = sorted(glob.glob(experiment + '/eeg/*/clean-prestimulus.set'))
-eeg_present = len(eegs) > 0
-cmaps = sorted(glob.glob(experiment + '/cmap/*.xlsx'))
-cmap_present = len(cmaps) > 0
-all_present = mep_present and eeg_present and cmap_present
-print(all_present)
-
-
-#%%
-print('EEG count: ' + str(len(eegs)))
-print('MEP count: ' + str(len(meps)))
-print('CMAP count: ' + str(len(cmaps)))
+# import keras
+# from keras import layers
+# from keras.models import Model
+# from keras import optimizers
+# from keras import callbacks
+# from keras.utils import plot_model
 
 #%%
 eegs = [
@@ -294,41 +280,95 @@ for item in x_test:
 
 #%% 
 model_path = 'logs/tensorboard/93-c3-c4-v1/'
-model_c3 = tf.keras.models.load_model(model_path + 'c3.h5')
-model_c4 = tf.keras.models.load_model(model_path + 'c4.h5')
+random_state = 64
+run_name = "run-c3-c4-1"
+logdir = 'logs/tensorboard/95-c3-c4-v1/'
+
+#%%
+# tf.keras.backend.clear_session()
+# model_c3 = load_model(model_path + 'c3.h5')
+# model_c4 = load_model(model_path + 'c4.h5')
 
 #%%
 def train_test_model(logdir, hparams):
-    
-    model_c3 = tf.keras.Flatten()(model_c3.layers[-1].output)
-    model_c4 = tf.keras.Flatten()(model_c4.layers[-1].output)
-    model = tf.keras.Concatenate()([model_c3, model_c4])
+    filter_kernel_2 = json.loads(hparams['filter_kernel_2'])
+
+    # C3 Convolution.
+    c3_input = keras.Input(shape=(x_train_c3[0].shape[0], x_train_c3[0].shape[1], 1), name='c3_input')
+    c3_model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(c3_input)
+    c3_model = layers.MaxPooling2D(pool_size=2)(c3_model)
+    c3_model = layers.Dropout(0.4)(c3_model)
+    if int(filter_kernel_2[0]) > 0:
+        c3_model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(c3_model)
+        c3_model = layers.MaxPooling2D(pool_size=2)(c3_model)
+        c3_model = layers.Dropout(0.4)(c3_model)
+    c3_model = layers.Flatten()(c3_model)
+
+    # C4 Convolution.
+    c4_input = keras.Input(shape=(x_train_c3[0].shape[0], x_train_c3[0].shape[1], 1), name='c4_input')
+    c4_model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(c4_input)
+    c4_model = layers.MaxPooling2D(pool_size=2)(c4_model)
+    c4_model = layers.Dropout(0.4)(c4_model)
+    if int(filter_kernel_2[0]) > 0:
+        c4_model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(c4_model)
+        c4_model = layers.MaxPooling2D(pool_size=2)(c4_model)
+        c4_model = layers.Dropout(0.4)(c4_model)
+    c4_model = layers.Flatten()(c4_model)
+
+    # Dense concatenation.
+    model = layers.Concatenate()([c3_model, c4_model])
     for unit in hparams['units']:
-        model = Dense(unit, activation='relu')(model)
-        model = Dropout(hp['dropout'])(model)
-    model = Dense(1, activation='sigmoid')(model)
-    model = Model(inputs=[model_c3.layers[0].input, model_c4.layers[0].input], output=model)
+        model = layers.Dense(unit, activation='relu')(model)
+        model = layers.Dropout(hparams['dropout'])(model)
+    model = layers.Dense(1, activation='sigmoid')(model)
+
+    model = tf.keras.models.Model(inputs=[c3_input, c4_input], outputs=model)
     model.summary()
-    model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
+    if not os.path.exists(logdir):
+        os.makedirs(logdir)
+    plot_model(model, logdir + '/model.png', show_shapes=True, show_layer_names=False)
+    model.compile(optimizer=optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
-    cb = [
-        tf.keras.callbacks.TensorBoard(log_dir=logdir)
-    ]
-    history = classifier.fit({'c3_input': x_train_c3, 'c4_input': x_train_c4}, y_train, validation_data=({'c3_input': x_test_c3, 'c4_input': x_test_c4}, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
-    return classifier, history
+    # cb = [
+    #     callbacks.TensorBoard(log_dir=logdir),
+    #     hp.KerasCallback(logdir, hparams)
+    # ]
 
-#%%
-hparams = {
-    HP_UNITS_1: 128,
-    HP_UNITS_2: 16,
-    HP_LEARNING_RATE: 0.0001,
-    HP_CNN_KERNEL_1: 5,
-    HP_CNN_FILTER_1: 8,
-    HP_CNN_FILTER_KERNEL_2: '[8, 10]'
-}
-run_name = "run-c3"
-logdir = 'logs/tensorboard/93-c3-c4-v1/'
-model, history = train_test_model(logdir + run_name, hparams)
+    # plot_model('model.png')
+    # history = classifier.fit({'c3_input': x_train_c3, 'c4_input': x_train_c4}, y_train, validation_data=({'c3_input': x_test_c3, 'c4_input': x_test_c4}, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
+    # return classifier, history
+
 
 #%%
-model.save(logdir + 'c3.h5')
+def get_randomized_hyperparams():
+    df_params = []
+    for units in [[128, 64], [128], [64, 8], [32]]:
+        for dropout in [0.3, 0.5]:
+            for lr in [0.0001, 0.00001, 0.01]:
+                for kernel_1 in [10]:
+                    for filter_1 in [8]:
+                        for filter_kernel_2 in ['[8, 10]']:
+                            hparams = {
+                                'units': units,
+                                'dropout': dropout,
+                                'lr': lr,
+                                'kernel_1': kernel_1,
+                                'filter_1': filter_1,
+                                'filter_kernel_2': filter_kernel_2
+                            }
+                            df_params.append(hparams)
+    df_params = pd.DataFrame(df_params)
+    df_params = df_params.sample(frac=1, random_state=random_state)
+    print('Total hyperparameter combinations: ' + str(df_params.shape))
+    return df_params
+
+#%%
+df_hparams = get_randomized_hyperparams()
+df_hparams.head()
+
+#%%
+for row in tqdm(df_hparams.iterrows(), total=df_hparams.shape[0]):
+    train_test_model(logdir + run_name, row[1])
+    break
+
+#%%
