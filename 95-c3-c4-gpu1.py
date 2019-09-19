@@ -277,9 +277,12 @@ for item in x_train:
 for item in x_test:
     x_test_c3.append(item[0])
     x_test_c4.append(item[1])
+x_train_c3 = np.array(x_train_c3)
+x_train_c4 = np.array(x_train_c4)
+x_test_c3 = np.array(x_test_c3)
+x_test_c4 = np.array(x_test_c4)
 
 #%% 
-model_path = 'logs/tensorboard/93-c3-c4-v1/'
 random_state = 64
 run_name = "run-c3-c4-1"
 logdir = 'logs/tensorboard/95-c3-c4-v1/'
@@ -292,32 +295,33 @@ logdir = 'logs/tensorboard/95-c3-c4-v1/'
 #%%
 def train_test_model(logdir, hparams):
     filter_kernel_2 = json.loads(hparams['filter_kernel_2'])
+    units = json.loads(hparams['units'])
 
     # C3 Convolution.
     c3_input = keras.Input(shape=(x_train_c3[0].shape[0], x_train_c3[0].shape[1], 1), name='c3_input')
     c3_model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(c3_input)
     c3_model = layers.MaxPooling2D(pool_size=2)(c3_model)
-    c3_model = layers.Dropout(0.4)(c3_model)
+    c3_model = layers.Dropout(hparams['dropout'])(c3_model)
     if int(filter_kernel_2[0]) > 0:
         c3_model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(c3_model)
         c3_model = layers.MaxPooling2D(pool_size=2)(c3_model)
-        c3_model = layers.Dropout(0.4)(c3_model)
+        c3_model = layers.Dropout(hparams['dropout'])(c3_model)
     c3_model = layers.Flatten()(c3_model)
 
     # C4 Convolution.
     c4_input = keras.Input(shape=(x_train_c3[0].shape[0], x_train_c3[0].shape[1], 1), name='c4_input')
     c4_model = layers.Conv2D(filters=int(hparams['filter_1']), kernel_size=int(hparams['kernel_1']), activation='relu')(c4_input)
     c4_model = layers.MaxPooling2D(pool_size=2)(c4_model)
-    c4_model = layers.Dropout(0.4)(c4_model)
+    c4_model = layers.Dropout(hparams['dropout'])(c4_model)
     if int(filter_kernel_2[0]) > 0:
         c4_model = layers.Conv2D(filters=int(filter_kernel_2[0]), kernel_size=int(filter_kernel_2[1]), activation='relu')(c4_model)
         c4_model = layers.MaxPooling2D(pool_size=2)(c4_model)
-        c4_model = layers.Dropout(0.4)(c4_model)
+        c4_model = layers.Dropout(hparams['dropout'])(c4_model)
     c4_model = layers.Flatten()(c4_model)
 
     # Dense concatenation.
     model = layers.Concatenate()([c3_model, c4_model])
-    for unit in hparams['units']:
+    for unit in units:
         model = layers.Dense(unit, activation='relu')(model)
         model = layers.Dropout(hparams['dropout'])(model)
     model = layers.Dense(1, activation='sigmoid')(model)
@@ -329,25 +333,24 @@ def train_test_model(logdir, hparams):
     plot_model(model, logdir + '/model.png', show_shapes=True, show_layer_names=False)
     model.compile(optimizer=optimizers.Adam(learning_rate=hparams['lr'], decay=0.001), loss='binary_crossentropy', metrics=['accuracy'])
 
-    # cb = [
-    #     callbacks.TensorBoard(log_dir=logdir),
-    #     hp.KerasCallback(logdir, hparams)
-    # ]
+    cb = [
+        callbacks.TensorBoard(log_dir=logdir),
+        hp.KerasCallback(logdir, hparams)
+    ]
 
-    # plot_model('model.png')
-    # history = classifier.fit({'c3_input': x_train_c3, 'c4_input': x_train_c4}, y_train, validation_data=({'c3_input': x_test_c3, 'c4_input': x_test_c4}, y_test), batch_size=64, epochs=1000, callbacks=cb, verbose=0)
-    # return classifier, history
+    history = model.fit({'c3_input': x_train_c3, 'c4_input': x_train_c4}, y_train, validation_data=({'c3_input': x_test_c3, 'c4_input': x_test_c4}, y_test), batch_size=64, epochs=500, callbacks=cb, verbose=0)
+    return model, history
 
 
 #%%
 def get_randomized_hyperparams():
     df_params = []
-    for units in [[128, 64], [128], [64, 8], [32]]:
+    for units in ['[128, 64]', '[128]', '[64, 8]', '[32]']:
         for dropout in [0.3, 0.5]:
             for lr in [0.0001, 0.00001, 0.01]:
-                for kernel_1 in [5]:
-                    for filter_1 in [8]:
-                        for filter_kernel_2 in ['[8, 10]']:
+                for kernel_1 in [5, 15]:
+                    for filter_1 in [8, 16]:
+                        for filter_kernel_2 in ['[8, 10]', '[32, 10]', '[16, 20]']:
                             hparams = {
                                 'units': units,
                                 'dropout': dropout,
@@ -367,8 +370,9 @@ df_hparams = get_randomized_hyperparams()
 df_hparams.head()
 
 #%%
+session = 1
 for row in tqdm(df_hparams.iterrows(), total=df_hparams.shape[0]):
-    train_test_model(logdir + run_name, row[1])
-    break
+    train_test_model(logdir + run_name + '-' + str(session), row[1])
+    session = session + 1
 
 #%%

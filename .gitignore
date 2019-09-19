@@ -226,6 +226,8 @@ logs/
 wavelets/
 wavelets-69/
 wavelets-90/
+wavelets-100/
+fft-97/
 *.pdf
 
 # End of https://www.gitignore.io/api/python,pycharm,visualstudiocode
