@@ -271,5 +271,7 @@ wavelets-90/
 wavelets-100/
 fft-97/
 *.pdf
-
+*.xlsx
+*.csv
+figs/
 # End of https://www.gitignore.io/api/python,pycharm,visualstudiocode

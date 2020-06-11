@@ -1,0 +1,10 @@
+44.1k Mono 32bit
+
+Bistim Module D70 F8 Coil
+Distance 5cm
+Manually Set and Triggered every 3-5 seconds
+
+7 40% Single Pulse
+6 65% Single Pulse
+5 CS55% TS55% SICF 3ms
+4 CS40% TS65% SICI 3ms
