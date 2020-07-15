@@ -1,4 +1,5 @@
 conda install -c conda-forge tqdm ipywidgets -y
+conda install -c anaconda pillow -y
 
 // Enable tqdm in jupyter lab
 jupyter nbextension enable --py widgetsnbextension
