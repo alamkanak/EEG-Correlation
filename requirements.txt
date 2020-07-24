@@ -1,4 +1,4 @@
-conda install -c conda-forge jupyterlab tqdm ipywidgets pandas matplotlib xlrd openpyxl scikit-learn seaborn -y
+conda install -c conda-forge jupyterlab tqdm ipywidgets pandas matplotlib xlrd openpyxl scikit-learn seaborn oct2py -y
 conda install -c anaconda pillow -y
 
 // Enable tqdm in jupyter lab
