@@ -1,5 +1,6 @@
 conda install -c conda-forge jupyterlab tqdm ipywidgets pandas matplotlib xlrd openpyxl scikit-learn seaborn oct2py -y
 conda install -c anaconda pillow -y
+yes | pip install spectrum
 
 // Enable tqdm in jupyter lab
 jupyter nbextension enable --py widgetsnbextension
