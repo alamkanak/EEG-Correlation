@@ -29,3 +29,9 @@ The file [`166-d3.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/b
 - Artifactual raw EEG files: `raw/*.mat`
 
 The processing outputs are stored in `157-alc-power-long.xlsx` and `157-alc-phase-long.xlsx` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
+
+## Statistical analysis
+The correlation between methodological choices and power-phase quantities were performed separately in different files for different datasets.
+- Dataset 1: [d1.R](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/StatisticalAnalysis/d1.R)
+- Dataset 2: [d2.R](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/StatisticalAnalysis/d2.R)
+- Dataset 3: [d3.R]
