@@ -2,6 +2,12 @@
 
 This project calculates PSD and phases of EEG datasets. The input files are what outputted by https://github.com/alamkanak/EEG-Processing-Matlab and the output files are excel files containing powers and phases. Please read the `README.md` of https://github.com/alamkanak/EEG-Processing-Matlab before starting to read this document.
 
+## Install
+1. Create a conda environment with python 3.7
+2. Run the commands mentioned in [requirements.txt](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/requirements.txt) file
+3. Download the datasets in `data` folder
+4. Open jupyter notebook
+
 ## Dataset 1
 The file [`164-d1.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/164-d1.ipynb) does all the processing of dataset1. It reads four types of files and processes them:
 
