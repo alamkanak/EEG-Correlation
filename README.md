@@ -19,7 +19,7 @@ The file [`164-d1.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/b
 The processing outputs are stored in `164-d1-powers.csv` and `164-d1-phases.csv` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
 
 ## Dataset 2
-The file [`157-alcoholism-output.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/157-alcoholism-output.ipynb) does all the processing of dataset2. It reads 2 types of files and processes them:
+The file [`157-d2.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/157-d2.ipynb) does all the processing of dataset2. It reads 2 types of files and processes them:
 
 - Cleaned Hjorth transformed files: `*-hjorth.mat`
 - Cleaned Raw EEG files: `*.csv`
