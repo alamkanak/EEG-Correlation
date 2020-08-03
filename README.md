@@ -18,6 +18,8 @@ The file [`164-d1.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/b
 
 The processing outputs are stored in `164-d1-powers.csv` and `164-d1-phases.csv` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
 
+The plots for the paper are produced in [167-d1-plot.ipynb](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/167-d1-plot.ipynb).
+
 ## Dataset 2
 The file [`157-d2.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/157-d2.ipynb) does all the processing of dataset2. It reads 2 types of files and processes them:
 
@@ -25,6 +27,8 @@ The file [`157-d2.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/b
 - Cleaned Raw EEG files: `*.csv`
 
 The processing outputs are stored in `157-alc-power-long.xlsx` and `157-alc-phase-long.xlsx` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
+
+The plots for the paper are produced in [168-d2-plot.ipynb](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/168-d2-plot.ipynb).
 
 ## Dataset 3
 The file [`166-d3.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/166-d3.ipynb) does all the processing of dataset3. It reads four types of files and processes them:
@@ -35,6 +39,8 @@ The file [`166-d3.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/b
 - Artifactual raw EEG files: `raw/*.mat`
 
 The processing outputs are stored in `157-alc-power-long.xlsx` and `157-alc-phase-long.xlsx` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
+
+The plots for the paper are produced in [169-d3-plot.ipynb](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/169-d3-plot.ipynb).
 
 ## Statistical analysis
 The correlation between methodological choices and power-phase quantities were performed separately in different files for different datasets.
