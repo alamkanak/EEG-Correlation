@@ -81,6 +81,43 @@ def power_box_plot(df_subject, def_values_power, hue_order_power, y_lim, y_ticks
                 box.set_edgecolor('black')
         plt.tight_layout()
         
+
+def power_violin_plot(df_subject, def_values_power, hue_order_power, y_lim, y_ticks, show_legend):
+    with plt.style.context(['science-raquib2']):
+        f, axs = plt.subplots(1,5,figsize=(9, 2))
+        i = 0
+        for variable in tqdm(list(def_values_power.keys())):    
+            df_power3 = df_subject
+            print('--------------')
+            print(variable)
+            print('--------------')
+            for key, value in def_values_power.items():
+                if key != variable:
+                    df_power3 = df_power3[df_power3[key] == value]
+                    print('Performing {} = {} for constant {}, shape = {}'.format(key, value, variable, df_power3.shape))
+
+            g=sns.violinplot(x="Band", y="Power", hue=variable, data=df_power3, ax=axs[i], fliersize=0, hue_order=hue_order_power[variable])
+            if y_lim is not None:
+                axs[i].set_ylim(y_lim)
+            plt.setp(axs[i].lines, color='k')
+            axs[i].set_title(variable)
+            if show_legend == False:
+                axs[i].get_legend().remove()
+            axs[i].xaxis.set_ticks_position('bottom')
+            if i == 0:
+                axs[i].set_ylabel('Power (dB)')
+                if y_ticks is not None:
+                    axs[i].get_yaxis().set_ticks(y_ticks)
+            else:
+                axs[i].set_ylabel('')
+                if y_ticks is not None:
+                    axs[i].set_yticklabels([])
+                    # axs[i].get_yaxis().set_ticks([])
+            i = i + 1
+            for _, box in enumerate(g.artists):
+                box.set_edgecolor('black')
+        plt.tight_layout()
+        
 def power_interaction_plot(df_subject, def_values_power, band_name, hue_order_power, y_lim, show_legend, hide_tick_labels):
     combs = list(combinations(list(def_values_power.keys()), 2))
     df_power2 = df_subject[df_subject['Band'] == band_name]
@@ -163,6 +200,24 @@ def power_corr_plot(df_corr, x_lim, x_ticks):
         colors = ['#f44336', '#7e57c2', '#29b6f6', '#ffeb3b']
         fig, ax = plt.subplots(figsize=(1.5,2.8))
         g = sns.boxplot(y='factor_value', x='Correlation', hue='band', data=df_corr, orient='h', ax=ax, fliersize=0.05, linewidth=0.3, palette=[mcolors.to_rgba(c) for c in colors])
+        ax.tick_params(axis='y', which='both', length=0)
+        if x_lim is not None:
+            ax.set_xlim(x_lim)
+        ax.get_legend().remove()
+        plt.setp(ax.lines, color='k')
+        for pos in ['top','bottom','left','right']:
+            ax.spines[pos].set_linewidth(0.3)
+        for i, box in enumerate(g.artists):
+            box.set_edgecolor('black')
+        ax.xaxis.set_ticks_position('bottom')
+        if x_ticks is not None:
+            ax.set_xticks(x_ticks)
+            
+def power_corr_plot_violin(df_corr, x_lim, x_ticks):
+    with plt.style.context(['science-raquib']):
+        colors = ['#f44336', '#7e57c2', '#29b6f6', '#ffeb3b']
+        fig, ax = plt.subplots(figsize=(1.5,2.8))
+        g = sns.violinplot(y='factor_value', x='Correlation', hue='band', data=df_corr, orient='h', ax=ax, fliersize=0.05, linewidth=0.3, palette=[mcolors.to_rgba(c) for c in colors])
         ax.tick_params(axis='y', which='both', length=0)
         if x_lim is not None:
             ax.set_xlim(x_lim)
