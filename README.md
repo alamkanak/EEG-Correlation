@@ -1,4 +1,4 @@
-# TMS-EEG-MEP-Correlation
+# EEG Correlation Analysis
 
 This project calculates PSD and phases of EEG datasets. The input files are what were outputted by https://github.com/alamkanak/EEG-Processing-Matlab. Taking them as input, this repository processes them and outputs powers and phases of the EEG signals as excel files and graphs. Please read the `README.md` of https://github.com/alamkanak/EEG-Processing-Matlab before starting to use this repository.
 
