@@ -12,12 +12,14 @@ This project calculates PSD and phases of EEG datasets. The input files are what
 Most of the files in this repository were used for experimentations. However, the relevent python codes for the resulting paper are included in the files `164-d1.ipynb`, `157-d2.ipynb`, `166-d3.ipynb`, `167-d1-plot.ipynb`, `168-d2-plot.ipynb`, and `169-d3-plot.ipynb`. The following are the description of these files.
 
 ## Dataset 1
-The file [`157-d2.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/157-d2.ipynb) does all the processing of dataset 1. It reads 2 types of files and processes them:
+The file [`157-d2.ipynb`](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/157-d2.ipynb) does all the processing of dataset 1. It reads four types of files and processes them:
 
-- Cleaned Hjorth transformed files: `*-hjorth.mat`
-- Cleaned Raw EEG files: `*.csv`
+- Artifactual Hjorth transformed files: `raw-hjorth/*.mat`
+- Artifactual Raw EEG files: `raw/*.mat`
+- Cleaned Hjorth transformed files: `clean-hjorth/*.csv`
+- Cleaned EEG files: `clean/*.mat`
 
-The processing outputs are stored in `157-alc-power-long.xlsx` and `157-alc-phase-long.xlsx` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
+The processing outputs are stored in `157-d2-power-v2.csv` and `157-d2-phase-v2.csv` files. The output files are not stored in the repository for large filesize. The output files are further processed in Rstudio.
 
 The plots for the paper are produced in [168-d2-plot.ipynb](https://github.com/alamkanak/TMS-EEG-MEP-Correlation/blob/master/168-d2-plot.ipynb).
 
