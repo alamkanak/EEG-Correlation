@@ -3,5 +3,6 @@ conda install -c anaconda pillow -y
 yes | pip install spectrum
 
 // Enable tqdm in jupyter lab
+conda install nodejs -y
 jupyter nbextension enable --py widgetsnbextension
 jupyter labextension install @jupyter-widgets/jupyterlab-manager
