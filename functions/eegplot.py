@@ -123,7 +123,7 @@ def power_interaction_plot(df_subject, def_values_power, band_name, hue_order_po
     df_power2 = df_subject[df_subject['Band'] == band_name]
     i = 0
     j = 0
-    with plt.style.context(['science-raquib']):
+    with plt.style.context(['science-raquib2']):
         figsize = (7, 3)
         if hide_tick_labels == False:
             figsize = (12, 7)
@@ -156,7 +156,7 @@ def power_interaction_plot(df_subject, def_values_power, band_name, hue_order_po
         plt.tight_layout()
         
 def phase_hist_plot(df_subject, def_values_phase, y_lim):
-    with plt.style.context(['science-raquib']):
+    with plt.style.context(['science-raquib2']):
         colors = ['#EF5350', '#43A047', '#039BE5']
         f, axs = plt.subplots(3, 4, figsize=(7,5))
         i = 0
@@ -196,7 +196,7 @@ def phase_hist_plot(df_subject, def_values_phase, y_lim):
         plt.tight_layout()
         
 def power_corr_plot(df_corr, x_lim, x_ticks):
-    with plt.style.context(['science-raquib']):
+    with plt.style.context(['science-raquib2']):
         colors = ['#f44336', '#7e57c2', '#29b6f6', '#ffeb3b']
         fig, ax = plt.subplots(figsize=(1.5,2.8))
         g = sns.boxplot(y='factor_value', x='Correlation', hue='band', data=df_corr, orient='h', ax=ax, fliersize=0.05, linewidth=0.3, palette=[mcolors.to_rgba(c) for c in colors])
@@ -214,7 +214,7 @@ def power_corr_plot(df_corr, x_lim, x_ticks):
             ax.set_xticks(x_ticks)
             
 def power_corr_plot_violin(df_corr, x_lim, x_ticks):
-    with plt.style.context(['science-raquib']):
+    with plt.style.context(['science-raquib2']):
         colors = ['#f44336', '#7e57c2', '#29b6f6', '#ffeb3b']
         fig, ax = plt.subplots(figsize=(1.5,2.8))
         g = sns.violinplot(y='factor_value', x='Correlation', hue='band', data=df_corr, orient='h', ax=ax, fliersize=0.05, linewidth=0.3, palette=[mcolors.to_rgba(c) for c in colors])
@@ -232,7 +232,7 @@ def power_corr_plot_violin(df_corr, x_lim, x_ticks):
             ax.set_xticks(x_ticks)
         
 def phase_corr_plots(df_corr, x_lim, x_ticks):
-    with plt.style.context(['science-raquib']):
+    with plt.style.context(['science-raquib2']):
         for grp in ['peak', 'trough']:
             df_corr2 = df_corr[df_corr['group'] == grp]
             colors = ['#f44336', '#7e57c2', '#29b6f6', '#ffeb3b']
