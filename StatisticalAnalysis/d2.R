@@ -26,11 +26,11 @@ library(emmeans) # for emm
 # Prepare dataset ---------------------------------------------------------
 
 # Load file 
-df_power = read.csv("../157-d2-power-v2.csv")
+df_power = read.csv("../157-d2-power-v3.csv")
 df_power = subset(df_power, alcoholic=='False')
 df_power = subset(df_power, condition=='S1 obj')
 df_power = df_power[is.finite(df_power$Power),]
-df_phase = read.csv("../157-d2-phase-v2.csv")
+df_phase = read.csv("../157-d2-phase-v3.csv")
 df_phase = subset(df_phase, alcoholic=='False')
 df_phase = subset(df_phase, condition=='S1 obj')
 

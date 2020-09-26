@@ -26,9 +26,9 @@ library(emmeans) # for emm
 # Prepare dataset ---------------------------------------------------------
 
 # Load file 
-df_power = read.csv("../166-d3-powers.csv")
+df_power = read.csv("../166-d3-powers-v3.csv")
 df_power = df_power[is.finite(df_power$Power),]
-df_phase = read.csv("../166-d3-phases.csv")
+df_phase = read.csv("../166-d3-phases-v3.csv")
 
 # Fix column ordering
 df_power <- transform(df_power, Band=factor(Band,levels=c("Theta","Mu","Beta","Gamma")))
