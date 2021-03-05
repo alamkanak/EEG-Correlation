@@ -20,8 +20,8 @@ library(plyr)
 library(ez)
 library(ggplot2)
 library(multcomp) # for glht
-library(emmeans) # for emm
-
+library(emmeans) # for 
+library(lsr)
 
 # Prepare dataset ---------------------------------------------------------
 
@@ -93,6 +93,7 @@ result <- data.frame(
   f=rep("", 3), 
   dfn=rep("", 3), 
   dfd=rep("", 3), 
+  estimate=rep("", 3), 
   stringsAsFactors=FALSE)
 modelNo <- 1
 for (var in power_def_variables) {
@@ -107,11 +108,11 @@ for (var in power_def_variables) {
       }
       j = j + 1
     }
-    m = lmer(Power ~ get(var)  + (1|sub), data=df2)
-    m = anova(m)
+    m1 = lmer(Power ~ get(var)  + (1|sub), data=df2)
+    m = anova(m1)
     # result[modelNo, ] <- list(modelNo, nrow(df2), var, round(m[1, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2))
     # result[modelNo, ] <- list(modelNo, nrow(df2), var, round(m[3, 6], 4), round(m[3, 5], 2), round(m[3, 3], 2), round(m[3, 4], 2))
-    result[modelNo, ] <- list(band, modelNo, nrow(df2), var, round(m[1, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2))
+    result[modelNo, ] <- list(band, modelNo, nrow(df2), var, round(m[1, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2), round(summary(m1)[10]$coefficients[2,1], 2))
     modelNo <- modelNo + 1
   }
 }
@@ -140,8 +141,8 @@ for (var in 1:ncol(combs)) {
     }
     j = j + 1
   }
-  m = lmer(Power ~ (get(var[1]) * get(var[2]) * Band) + (1|sub), data=df2)
-  m = anova(m)
+  m1 = lmer(Power ~ (get(var[1]) * get(var[2]) * Band) + (1|sub), data=df2)
+  m = anova(m1)
   # result[modelNo, ] <- list(modelNo, nrow(df2), paste(var[1], var[2], sep=":"), round(m[3, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2))
   result[modelNo, ] <- list(modelNo, nrow(df2), paste(var[1], var[2], sep=":"), round(m[7, 6], 4), round(m[7, 5], 2), round(m[7, 3], 2), round(m[7, 4], 2))
   modelNo <- modelNo + 1
@@ -165,6 +166,7 @@ result <- data.frame(
   f=rep("", 3), 
   dfn=rep("", 3), 
   dfd=rep("", 3), 
+  estimate=rep("",3),
   stringsAsFactors=FALSE)
 modelNo <- 1
 for (phase_type in c('peak', 'trough')) {
@@ -185,9 +187,9 @@ for (phase_type in c('peak', 'trough')) {
         }
         j = j + 1
       }
-      m = lmer(Phase ~ get(var)  + (1|sub), data=df3)
-      m = anova(m)
-      result[modelNo, ] <- list(band, modelNo, phase_type, nrow(df3), var, round(m[1, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2))
+      m1 = lmer(Phase ~ get(var)  + (1|sub), data=df3)
+      m = anova(m1)
+      result[modelNo, ] <- list(band, modelNo, phase_type, nrow(df3), var, round(m[1, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2), round(summary(m1)[10]$coefficients[2,1], 2))
       modelNo <- modelNo + 1
     }
   }
@@ -206,6 +208,7 @@ result <- data.frame(
   f=rep("", 3), 
   dfn=rep("", 3), 
   dfd=rep("", 3), 
+  estimate=rep("", 3), 
   stringsAsFactors=FALSE)
 modelNo <- 1
 combs <- combn(phase_def_variables, 2)
@@ -227,8 +230,8 @@ for (phase_type in c('peak', 'trough')) {
       }
       j = j + 1
     }
-    m = lmer(Phase ~ (get(var[1]) * get(var[2]))  + (1|sub/Band), data=df3)
-    m = anova(m)
+    m1 = lmer(Phase ~ (get(var[1]) * get(var[2]))  + (1|sub/Band), data=df3)
+    m = anova(m1)
     result[modelNo, ] <- list(modelNo, phase_type, nrow(df3), paste(var[1], var[2], sep=":"), round(m[3, 6], 4), round(m[1, 5], 2), round(m[1, 3], 2), round(m[1, 4], 2))
     modelNo <- modelNo + 1
   }
